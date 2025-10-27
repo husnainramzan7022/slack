@@ -1,0 +1,84 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { SlackService } from '@/integrations/slack/service';
+import { IntegrationErrorCodes } from '@/integrations/common/types';
+
+// Initialize Slack service
+const getSlackService = (): SlackService => {
+  const nangoSecretKey = process.env.NANGO_SECRET_KEY;
+  if (!nangoSecretKey) {
+    throw new Error('NANGO_SECRET_KEY environment variable is required');
+  }
+  return new SlackService(nangoSecretKey);
+};
+
+/**
+ * Send a message to Slack
+ * POST /api/integrations/slack/send-message
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { nangoConnectionId, ...messageData } = body;
+
+    if (!nangoConnectionId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: IntegrationErrorCodes.MISSING_REQUIRED_FIELD,
+            message: 'nangoConnectionId is required',
+          },
+        },
+        { status: 400 }
+      );
+    }
+
+    const slackService = getSlackService();
+    
+    // Initialize with the connection ID
+    await slackService.initialize({ nangoConnectionId });
+
+    // Create auth context (you might want to extract this from headers/session)
+    const authContext = {
+      userId: 'system', // Replace with actual user ID from your auth system
+      accessToken: '', // Nango handles this
+    };
+
+    const result = await slackService.sendMessage(messageData, authContext);
+
+    if (!result.success) {
+      return NextResponse.json(result, { 
+        status: result.error?.code === IntegrationErrorCodes.AUTHENTICATION_FAILED ? 401 : 400 
+      });
+    }
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('Error sending Slack message:', error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: IntegrationErrorCodes.API_ERROR,
+          message: 'Internal server error',
+          details: process.env.NODE_ENV === 'development' ? { error: (error as Error).message } : {},
+        },
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * Health check for the send-message endpoint
+ * GET /api/integrations/slack/send-message
+ */
+export async function GET() {
+  return NextResponse.json({
+    endpoint: 'send-message',
+    methods: ['POST'],
+    description: 'Send a message to a Slack channel or user',
+    requiredFields: ['nangoConnectionId', 'channel', 'text'],
+    optionalFields: ['thread_ts', 'username', 'icon_emoji', 'attachments'],
+  });
+}
