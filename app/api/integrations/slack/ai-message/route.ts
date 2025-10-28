@@ -144,7 +144,59 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Parse the AI command
+    // Try MCP first
+    console.log('AI-MESSAGE: Attempting MCP execution...');
+    
+    try {
+      const { executeMCPTool } = await import('../../../../../lib/mcp-loader');
+      const mcpResult = await executeMCPTool(
+        'slack-mcp',
+        'slack_ai_message',
+        { connectionId: nangoConnectionId, command }
+      );
+      
+      console.log('AI-MESSAGE: MCP result:', mcpResult);
+      
+      if (mcpResult.success && mcpResult.result && !mcpResult.result.isError) {
+        console.log('AI-MESSAGE: SUCCESS - Returning MCP result');
+        // Parse MCP response - it includes descriptive text + JSON
+        const mcpContent = mcpResult.result.content?.[0]?.text;
+        let aiMessageData;
+        try {
+          const jsonStart = mcpContent.indexOf('{');
+          if (jsonStart !== -1) {
+            const jsonPart = mcpContent.substring(jsonStart);
+            aiMessageData = JSON.parse(jsonPart);
+          } else {
+            throw new Error('No JSON found in MCP content');
+          }
+        } catch (parseErr) {
+          console.log('AI-MESSAGE: Failed to parse MCP content, using fallback');
+          aiMessageData = {};
+        }
+        
+        // Return the exact format expected by the frontend
+        return NextResponse.json({ 
+          success: true, 
+          data: {
+            messageId: aiMessageData?.result?.messageId || aiMessageData?.result?.timestamp || 'mcp-ai-success',
+            timestamp: aiMessageData?.result?.timestamp || new Date().toISOString(),
+            parsedCommand: {
+              originalCommand: aiMessageData?.originalCommand || command,
+              extractedMessage: aiMessageData?.parsedMessage || 'Message sent via MCP',
+              extractedChannel: aiMessageData?.parsedChannel || 'Unknown channel'
+            }
+          }
+        });
+      } else {
+        console.warn('AI-MESSAGE: MCP returned error/empty, falling back to SlackService', mcpResult);
+      }
+    } catch (mcpErr) {
+      console.warn('AI-MESSAGE: MCP execution failed, falling back to SlackService', (mcpErr as any)?.message || mcpErr);
+    }
+
+    // Fallback: Parse the AI command manually and use SlackService
+    console.log('AI-MESSAGE: Executing via SlackService fallback');
     const parsed = parseAICommand(command);
     
     if (!parsed) {

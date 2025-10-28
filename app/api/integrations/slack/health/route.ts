@@ -35,7 +35,50 @@ export async function POST(request: NextRequest) {
 
     const slackService = getSlackService();
     
-    // Initialize with the connection ID
+    // Try MCP first
+    console.log('HEALTH: Attempting MCP execution...');
+    
+    try {
+      const { executeMCPTool } = await import('../../../../../lib/mcp-loader');
+      const mcpResult = await executeMCPTool(
+        'slack-mcp',
+        'slack_health_check',
+        { connectionId: nangoConnectionId }
+      );
+      
+      console.log('HEALTH: MCP result:', mcpResult);
+      
+      if (mcpResult.success && mcpResult.result && !mcpResult.result.isError) {
+        console.log('HEALTH: SUCCESS - Returning MCP result');
+        // Parse MCP response - it includes descriptive text + JSON
+        const mcpContent = mcpResult.result.content?.[0]?.text;
+        let healthData;
+        try {
+          const jsonStart = mcpContent.indexOf('{');
+          if (jsonStart !== -1) {
+            const jsonPart = mcpContent.substring(jsonStart);
+            healthData = JSON.parse(jsonPart);
+          } else {
+            throw new Error('No JSON found in MCP content');
+          }
+        } catch (parseErr) {
+          console.log('HEALTH: Failed to parse MCP content, using fallback');
+          healthData = { status: 'healthy', timestamp: new Date().toISOString() };
+        }
+        
+        return NextResponse.json({ 
+          success: true, 
+          data: healthData, 
+          meta: { timestamp: new Date().toISOString(), integration: 'slack', version: 'mcp' } 
+        });
+      } else {
+        console.warn('HEALTH: MCP returned error/empty, falling back to SlackService', mcpResult);
+      }
+    } catch (mcpErr) {
+      console.warn('HEALTH: MCP execution failed, falling back to SlackService', (mcpErr as any)?.message || mcpErr);
+    }
+
+    // Fallback to direct SlackService
     await slackService.initialize({ nangoConnectionId });
 
     // Perform health check

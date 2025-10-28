@@ -125,7 +125,6 @@ export class SlackService extends BaseIntegrationClass {
 
 
 
-      console.log('Sending message with request:', validatedRequest);
       if (!this.config) {
         throw new Error('Integration not initialized');
       }
@@ -142,7 +141,7 @@ export class SlackService extends BaseIntegrationClass {
         }
       ) as any;
 
-      console.log('Send message response:', response);
+      // console.log('Send message response:', response);
 
       // Handle the response from Nango's triggerAction
       if (!response.ok) {
@@ -298,7 +297,6 @@ export class SlackService extends BaseIntegrationClass {
       );
 
 
-      console.log('Fetching channels with request:', validatedRequest);
       const response = await this.makeApiCall<{
         ok: boolean;
         channels: SlackChannel[];
@@ -306,7 +304,6 @@ export class SlackService extends BaseIntegrationClass {
         error?: string;
       }>('/conversations.list', validatedRequest);
 
-      console.log('Received channels response:', response);
       if (!response.ok || !response.channels) {
         return this.createResponse(undefined, this.createError(
           IntegrationErrorCodes.API_ERROR,

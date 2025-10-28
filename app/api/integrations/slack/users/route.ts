@@ -33,9 +33,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const slackService = getSlackService();
+    // Try MCP first
+    console.log('USERS: Attempting MCP execution...');
     
-    // Initialize with the connection ID
+    try {
+      const { executeMCPTool } = await import('../../../../../lib/mcp-loader');
+      const mcpResult = await executeMCPTool(
+        'slack-mcp',
+        'slack_get_users',
+        { connectionId: nangoConnectionId, ...queryParams }
+      );
+      
+      console.log('USERS: MCP result:', mcpResult);
+      
+      if (mcpResult.success && mcpResult.result && !mcpResult.result.isError) {
+        console.log('USERS: SUCCESS - Returning MCP result');
+        // Parse MCP response - it includes descriptive text + JSON
+        const mcpContent = mcpResult.result.content?.[0]?.text;
+        let usersData;
+        try {
+          const jsonStart = mcpContent.indexOf('{');
+          if (jsonStart !== -1) {
+            const jsonPart = mcpContent.substring(jsonStart);
+            usersData = JSON.parse(jsonPart);
+          } else {
+            throw new Error('No JSON found in MCP content');
+          }
+        } catch (parseErr) {
+          console.log('USERS: Failed to parse MCP content, using fallback');
+          usersData = { users: [], nextCursor: '', total: 0 };
+        }
+        
+        return NextResponse.json({ 
+          success: true, 
+          data: {
+            users: usersData.users || [],
+            nextCursor: usersData.nextCursor || '',
+            total: usersData.total || 0
+          }
+        });
+      } else {
+        console.warn('USERS: MCP returned error/empty, falling back to SlackService', mcpResult);
+      }
+    } catch (mcpErr) {
+      console.warn('USERS: MCP execution failed, falling back to SlackService', (mcpErr as any)?.message || mcpErr);
+    }
+
+    // Fallback to direct SlackService
+    const slackService = getSlackService();
     await slackService.initialize({ nangoConnectionId });
 
     // Create auth context

@@ -48,7 +48,46 @@ export async function POST(request: NextRequest) {
 
     const slackService = getSlackService();
     
-    // Initialize with the connection ID
+    // Try MCP first
+    console.log('USER-INFO: Attempting MCP execution...');
+    
+    try {
+      const { executeMCPTool } = await import('../../../../../lib/mcp-loader');
+      const mcpResult = await executeMCPTool(
+        'slack-mcp',
+        'slack_get_user_info',
+        { connectionId: nangoConnectionId, user, ...queryParams }
+      );
+      
+      console.log('USER-INFO: MCP result:', mcpResult);
+      
+      if (mcpResult.success && mcpResult.result && !mcpResult.result.isError) {
+        console.log('USER-INFO: SUCCESS - Returning MCP result');
+        // Parse MCP response - it includes descriptive text + JSON
+        const mcpContent = mcpResult.result.content?.[0]?.text;
+        let userInfoData;
+        try {
+          const jsonStart = mcpContent.indexOf('{');
+          if (jsonStart !== -1) {
+            const jsonPart = mcpContent.substring(jsonStart);
+            userInfoData = JSON.parse(jsonPart);
+          } else {
+            throw new Error('No JSON found in MCP content');
+          }
+        } catch (parseErr) {
+          console.log('USER-INFO: Failed to parse MCP content, using fallback');
+          userInfoData = {};
+        }
+        
+        return NextResponse.json({ success: true, data: userInfoData });
+      } else {
+        console.warn('USER-INFO: MCP returned error/empty, falling back to SlackService', mcpResult);
+      }
+    } catch (mcpErr) {
+      console.warn('USER-INFO: MCP execution failed, falling back to SlackService', (mcpErr as any)?.message || mcpErr);
+    }
+
+    // Fallback to direct SlackService
     await slackService.initialize({ nangoConnectionId });
 
     // Create auth context

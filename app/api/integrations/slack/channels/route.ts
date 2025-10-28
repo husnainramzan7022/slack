@@ -33,9 +33,56 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const slackService = getSlackService();
+    // Try MCP first
+    console.log('CHANNELS: Attempting MCP execution...');
     
-    // Initialize with the connection ID
+    try {
+      const { executeMCPTool } = await import('../../../../../lib/mcp-loader');
+      const mcpResult = await executeMCPTool(
+        'slack-mcp',
+        'slack_get_channels',
+        { connectionId: nangoConnectionId, ...queryParams }
+      );
+      
+    //   console.log('CHANNELS: MCP result:', mcpResult);
+      
+      if (mcpResult.success && mcpResult.result && !mcpResult.result.isError) {
+        console.log('CHANNELS: SUCCESS - Returning MCP result');
+        
+        // Parse MCP response - it includes descriptive text + JSON
+        const mcpContent = mcpResult.result.content?.[0]?.text;
+        let channelsData;
+        try {
+          const jsonStart = mcpContent.indexOf('{');
+          if (jsonStart !== -1) {
+            const jsonPart = mcpContent.substring(jsonStart);
+            channelsData = JSON.parse(jsonPart);
+          } else {
+            throw new Error('No JSON found in MCP content');
+          }
+        } catch (parseErr) {
+          console.log('CHANNELS: Failed to parse MCP content, using fallback');
+          channelsData = { channels: [], nextCursor: '', total: 0 };
+        }
+        
+        // Return the exact same format as SlackService would
+        return NextResponse.json({ 
+          success: true, 
+          data: {
+            channels: channelsData.channels || [],
+            nextCursor: channelsData.nextCursor || '',
+            total: channelsData.total || 0
+          }
+        });
+      } else {
+        console.warn('CHANNELS: MCP returned error/empty, falling back to SlackService', mcpResult);
+      }
+    } catch (mcpErr) {
+      console.warn('CHANNELS: MCP execution failed, falling back to SlackService', (mcpErr as any)?.message || mcpErr);
+    }
+
+    // Fallback: direct SlackService call (preserves existing behavior)
+    const slackService = getSlackService();
     await slackService.initialize({ nangoConnectionId });
 
     // Create auth context

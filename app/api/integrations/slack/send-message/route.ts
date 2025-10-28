@@ -33,9 +33,63 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const slackService = getSlackService();
+    // Try MCP first
+    console.log('SEND-MESSAGE: Attempting MCP execution...');
     
-    // Initialize with the connection ID
+    try {
+      const { executeMCPTool } = await import('../../../../../lib/mcp-loader');
+      const mcpResult = await executeMCPTool(
+        'slack-mcp',
+        'slack_send_message',
+        { connectionId: nangoConnectionId, ...messageData }
+      );
+      
+      console.log('SEND-MESSAGE: MCP result:', mcpResult);
+      
+      if (mcpResult.success && mcpResult.result && !mcpResult.result.isError) {
+        console.log('SEND-MESSAGE: SUCCESS - Returning MCP result');
+        // Extract the actual message data from MCP response
+        const mcpContent = mcpResult.result.content?.[0]?.text;
+        let parsedData;
+        try {
+          // Extract JSON part from MCP content (skip descriptive text)
+          const jsonStart = mcpContent.indexOf('{');
+          if (jsonStart !== -1) {
+            const jsonPart = mcpContent.substring(jsonStart);
+            parsedData = JSON.parse(jsonPart);
+          } else {
+            throw new Error('No JSON found in MCP content');
+          }
+        } catch {
+          // Fallback data if parsing fails
+          parsedData = { 
+            ok: true, 
+            channel: messageData.channel, 
+            ts: new Date().getTime().toString(),
+            message: messageData.text 
+          };
+        }
+        
+        // Return in the format expected by frontend
+        return NextResponse.json({ 
+          success: true, 
+          data: {
+            ...parsedData,
+            // Ensure we have the original message data
+            channel: parsedData.channel || messageData.channel,
+            text: parsedData.message || messageData.text
+          }
+        });
+      } else {
+        console.warn('SEND-MESSAGE: MCP returned error/empty, falling back to SlackService', mcpResult);
+      }
+    } catch (mcpErr) {
+      console.warn('SEND-MESSAGE: MCP execution failed, falling back to SlackService', (mcpErr as any)?.message || mcpErr);
+    }
+
+    // Fallback: direct SlackService
+    console.log('Executing send-message via SlackService fallback');
+    const slackService = getSlackService();
     await slackService.initialize({ nangoConnectionId });
 
     // Create auth context (you might want to extract this from headers/session)

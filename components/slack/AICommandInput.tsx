@@ -73,7 +73,7 @@ const AICommandInput: React.FC<AICommandProps> = ({
       if (result.success && result.data?.messageId) {
         const parsedDetails = result.data.parsedCommand;
         showAlert('success', 
-          `Message sent successfully! Sent "${parsedDetails.extractedMessage}" to ${parsedDetails.extractedChannel}`
+          `Message sent successfully! Sent`
         );
         setCommand(''); // Clear the command input
         onMessageSent?.(result.data.messageId, parsedDetails);
