@@ -11,7 +11,8 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "@nangohq/node": "^0.40.0",
+    "@nangohq/frontend": "^0.69.5",
+    "@nangohq/node": "^0.69.5",
     "axios": "^1.6.0",
     "next": "^14.0.0",
     "react": "^18.0.0",

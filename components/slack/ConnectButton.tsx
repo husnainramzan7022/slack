@@ -19,22 +19,123 @@ const ConnectButton: React.FC<ConnectButtonProps> = ({
   className = '',
 }) => {
   const [loading, setLoading] = useState(false);
+  
+  // Generate or retrieve persistent user session data
+  const getUserSessionData = () => {
+    // Try to get existing session from localStorage
+    let sessionData = localStorage.getItem('pario-user-session');
+    
+    if (sessionData) {
+      return JSON.parse(sessionData);
+    }
+    
+    // Generate new session data for production
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 15);
+    
+    const newSessionData = {
+      userId: `user_${timestamp}_${randomId}`,
+      email: `user_${timestamp}@pario.dev`,
+      name: `Pario User ${new Date().toLocaleDateString()}`,
+      createdAt: new Date().toISOString(),
+      sessionId: `session_${timestamp}_${randomId}`
+    };
+    
+    // Store for future use
+    localStorage.setItem('pario-user-session', JSON.stringify(newSessionData));
+    
+    return newSessionData;
+  };
 
   /**
-   * Initiates the Slack OAuth flow
-   * Redirects to the backend endpoint that handles Nango OAuth
+   * Initiates the Slack OAuth flow following official Nango pattern
+   * Backend → Create session token → Frontend → Open Connect UI → Webhook saves connection
    */
   const handleConnect = async () => {
     try {
       setLoading(true);
       
-      // Redirect to the backend OAuth endpoint
-      // The backend will handle the Nango OAuth flow and redirect back
-      window.location.href = '/api/integrations/slack/connect';
+      console.log('🚀 Starting Slack OAuth flow...');
+      
+      // Get or generate user session data
+      const sessionData = getUserSessionData();
+      console.log('Using session data:', sessionData);
+      
+      // Step 1: Get session token from backend
+      const res = await fetch('/api/nango/session-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sessionData),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Failed to get session token: ${errorText}`);
+      }
+
+      const data = await res.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      console.log('✅ Session token received');
+      
+      // Step 2: Import Nango frontend SDK and open Connect UI
+      const Nango = (await import('@nangohq/frontend')).default;
+      const nango = new Nango();
+      
+      const connect = nango.openConnectUI({
+        onEvent: (event: any) => {
+          console.log('🔔 Nango Connect Event:', event);
+          
+          if (event.type === 'connect') {
+            const connectionId = event.payload?.connectionId;
+            console.log('✅ Connected:', connectionId);
+            
+            // Store connection ID for future use
+            if (connectionId) {
+              localStorage.setItem('pario-slack-connection-id', connectionId);
+              
+              // Also store connection details with user session
+              const currentSession = getUserSessionData();
+              const connectionData = {
+                ...currentSession,
+                connectionId,
+                connectedAt: new Date().toISOString(),
+                provider: 'slack',
+                status: 'connected'
+              };
+              localStorage.setItem('pario-slack-connection-data', JSON.stringify(connectionData));
+            }
+            
+            setLoading(false);
+            
+            // Notify parent component about successful connection
+            if (onConnectionChange) {
+              onConnectionChange(true);
+            }
+            
+            // Show success message with connection ID
+            alert(`🎉 Slack connected successfully!\nConnection ID: ${connectionId}\nYou can now send messages.`);
+            
+          } else if (event.type === 'close') {
+            console.log('❌ User closed the modal');
+            setLoading(false);
+          }
+        },
+      });
+
+      // Step 3: Set the session token to start OAuth flow
+      console.log('🔑 Opening Connect UI...');
+      connect.setSessionToken(data.sessionToken);
       
     } catch (error) {
-      console.error('Failed to initiate Slack connection:', error);
+      console.error('❌ Failed to initiate Slack connection:', error);
       setLoading(false);
+      
+      // Show error to user
+      alert(`Connection failed: ${(error as Error).message}`);
     }
   };
 
