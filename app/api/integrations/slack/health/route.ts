@@ -46,10 +46,8 @@ export async function POST(request: NextRequest) {
         { connectionId: nangoConnectionId }
       );
       
-      console.log('HEALTH: MCP result:', mcpResult);
       
       if (mcpResult.success && mcpResult.result && !mcpResult.result.isError) {
-        console.log('HEALTH: SUCCESS - Returning MCP result');
         // Parse MCP response - it includes descriptive text + JSON
         const mcpContent = mcpResult.result.content?.[0]?.text;
         let healthData;

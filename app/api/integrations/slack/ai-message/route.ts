@@ -155,10 +155,8 @@ export async function POST(request: NextRequest) {
         { connectionId: nangoConnectionId, command }
       );
       
-      console.log('AI-MESSAGE: MCP result:', mcpResult);
       
       if (mcpResult.success && mcpResult.result && !mcpResult.result.isError) {
-        console.log('AI-MESSAGE: SUCCESS - Returning MCP result');
         // Parse MCP response - it includes descriptive text + JSON
         const mcpContent = mcpResult.result.content?.[0]?.text;
         let aiMessageData;

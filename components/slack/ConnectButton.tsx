@@ -59,7 +59,6 @@ const ConnectButton: React.FC<ConnectButtonProps> = ({
       
       // Get or generate user session data
       const sessionData = getUserSessionData();
-      console.log('Using session data:', sessionData);
       
       // Step 1: Get session token from backend
       const res = await fetch('/api/nango/session-token', {
@@ -91,7 +90,6 @@ const ConnectButton: React.FC<ConnectButtonProps> = ({
           
           if (event.type === 'connect') {
             const connectionId = event.payload?.connectionId;
-            console.log('✅ Connected:', connectionId);
             
             // Store connection ID for future use
             if (connectionId) {

@@ -59,7 +59,6 @@ export async function POST(request: NextRequest) {
         { connectionId: nangoConnectionId, user, ...queryParams }
       );
       
-      console.log('USER-INFO: MCP result:', mcpResult);
       
       if (mcpResult.success && mcpResult.result && !mcpResult.result.isError) {
         console.log('USER-INFO: SUCCESS - Returning MCP result');

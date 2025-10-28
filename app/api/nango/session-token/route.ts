@@ -44,7 +44,6 @@ export async function POST(request: NextRequest) {
       }
     };
 
-    console.log('Creating Nango connect session for user:', endUser.id);
 
     // Create session token using official Nango SDK method
     const response = await nango.createConnectSession({

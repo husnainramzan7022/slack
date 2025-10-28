@@ -7,7 +7,6 @@ export async function loadMCPModule() {
   try {
     // Import the built MCP module
     const mcpModule = await import('../dist/mcp/index.js');
-    console.log('MCP Module loaded successfully');
     return mcpModule;
   } catch (error) {
     console.warn('Failed to load MCP module:', (error as any)?.message || error);

@@ -141,7 +141,6 @@ export class SlackService extends BaseIntegrationClass {
         }
       ) as any;
 
-      // console.log('Send message response:', response);
 
       // Handle the response from Nango's triggerAction
       if (!response.ok) {
