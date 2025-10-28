@@ -62,9 +62,10 @@ function SlackIntegrationContent() {
    * Load saved connection ID from localStorage on mount
    */
   useEffect(() => {
-    const savedConnectionId = localStorage.getItem('slack-connection-id');
+    const savedConnectionId = localStorage.getItem('pario-slack-connection-id');
     if (savedConnectionId && !connectionId) {
       setConnectionId(savedConnectionId);
+      console.log('Loaded saved connection ID:', savedConnectionId);
     }
   }, []);
 
@@ -73,9 +74,22 @@ function SlackIntegrationContent() {
    */
   useEffect(() => {
     if (connectionId) {
-      localStorage.setItem('slack-connection-id', connectionId);
+      localStorage.setItem('pario-slack-connection-id', connectionId);
+      console.log('Saved connection ID:', connectionId);
     }
   }, [connectionId]);
+
+  /**
+   * Debug connection state changes
+   */
+  useEffect(() => {
+    const isConnectedValue = connectionStatus?.connected || false;
+    console.log('Connection state changed:', {
+      connectionId,
+      isConnected: isConnectedValue,
+      connectionStatus: connectionStatus?.connected
+    });
+  }, [connectionId, connectionStatus]);
 
   /**
    * Handle connection status changes from child components
@@ -131,8 +145,11 @@ function SlackIntegrationContent() {
   const handleDisconnect = () => {
     setConnectionId('');
     setConnectionStatus(null);
-    localStorage.removeItem('slack-connection-id');
+    localStorage.removeItem('pario-slack-connection-id');
+    localStorage.removeItem('pario-slack-connection-data');
+    localStorage.removeItem('pario-user-session');
     showAlert('info', 'Disconnected from Slack');
+    console.log('Cleared all connection data');
   };
 
   const isConnected = connectionStatus?.connected || false;
@@ -216,9 +233,11 @@ function SlackIntegrationContent() {
                     {!showConnectionInput ? (
                       <div className="space-y-3">
                         <ConnectButton
-                          onConnectionChange={(connected) => {
-                            if (connected) {
+                          onConnectionChange={(connected, connectionId) => {
+                            if (connected && connectionId) {
+                              setConnectionId(connectionId);
                               showAlert('success', 'Successfully connected to Slack!');
+                              console.log('Connection established with ID:', connectionId);
                             }
                           }}
                           className="w-full"

@@ -29,7 +29,7 @@ function parseAICommand(input: string): { message: string; channel: string } | n
     const message = match1[1].trim();
     let channel = match1[2].trim();
     
-    // Clean up channel reference
+    // Clean up channel reference and extract proper channel names
     if (channel.includes('/')) {
       // Handle "obaidmuneer/in some channel" -> extract channel part
       const parts = channel.split('/');
@@ -46,11 +46,45 @@ function parseAICommand(input: string): { message: string; channel: string } | n
       }
     }
     
-    // Add # prefix if it looks like a channel name and doesn't have prefix
+    // Smart channel name extraction from natural language
     if (!channel.startsWith('#') && !channel.startsWith('@') && !channel.startsWith('C') && !channel.startsWith('D')) {
-      if (channel.includes('general') || channel.includes('dev') || channel.includes('team') || channel.includes('random')) {
-        channel = `#${channel}`;
+      // Remove common words and extract the actual channel name
+      let cleanChannel = channel.toLowerCase()
+        .replace(/^(the\s+|a\s+|an\s+)/, '') // Remove articles
+        .replace(/\s+channel$/, '') // Remove trailing "channel"
+        .replace(/\s+room$/, '') // Remove trailing "room"
+        .replace(/\s+/, '-') // Replace spaces with hyphens (common in Slack)
+        .trim();
+      
+      // Map common natural language terms to actual channel names
+      const channelMappings: { [key: string]: string } = {
+        'development': 'dev',
+        'developer': 'dev',
+        'developers': 'dev',
+        'programming': 'dev',
+        'coding': 'dev',
+        'general': 'general',
+        'random': 'random',
+        'team': 'team',
+        'announcements': 'announcements',
+        'announce': 'announcements',
+        'marketing': 'marketing',
+        'sales': 'sales',
+        'support': 'support',
+        'help': 'support',
+        'design': 'design',
+        'product': 'product',
+        'engineering': 'engineering',
+        'tech': 'tech',
+        'technology': 'tech'
+      };
+      
+      // Apply mapping if exists
+      if (channelMappings[cleanChannel]) {
+        cleanChannel = channelMappings[cleanChannel];
       }
+      
+      channel = `#${cleanChannel}`;
     }
     
     return { message, channel };
@@ -154,7 +188,41 @@ export async function POST(request: NextRequest) {
     );
 
     if (!result.success) {
-      return NextResponse.json(result, { 
+      // Provide helpful error messages for common issues
+      let errorMessage = result.error?.message || 'Unknown error';
+      let suggestions: string[] = [];
+      
+      if (errorMessage.includes('channel_not_found')) {
+        errorMessage = `Channel "${parsed.channel}" not found or not accessible`;
+        suggestions = [
+          `Try using exact channel names like #general, #dev, or #random`,
+          `Make sure you're a member of the channel "${parsed.channel}"`,
+          `Use @username for direct messages instead of channel names`
+        ];
+      } else if (errorMessage.includes('not_in_channel')) {
+        errorMessage = `You're not a member of channel "${parsed.channel}"`;
+        suggestions = [
+          `Ask an admin to invite you to ${parsed.channel}`,
+          `Try a public channel you're already in like #general`
+        ];
+      }
+      
+      return NextResponse.json({
+        success: false,
+        error: {
+          ...result.error,
+          message: errorMessage,
+          details: {
+            originalChannel: parsed.channel,
+            suggestions,
+            parsedCommand: {
+              originalCommand: command,
+              extractedMessage: parsed.message,
+              extractedChannel: parsed.channel,
+            }
+          }
+        }
+      }, { 
         status: result.error?.code === IntegrationErrorCodes.AUTHENTICATION_FAILED ? 401 : 400 
       });
     }
@@ -206,8 +274,8 @@ export async function GET() {
           description: "Send a direct message to a user"
         },
         {
-          command: "send 'Good morning' to the development channel",
-          description: "Send to a channel using natural language"
+          command: "send 'Good morning' to #dev",
+          description: "Send to development channel (maps to #dev)"
         },
         {
           command: "tell #random that 'Coffee break!'",

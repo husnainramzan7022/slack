@@ -79,11 +79,17 @@ const AICommandInput: React.FC<AICommandProps> = ({
         onMessageSent?.(result.data.messageId, parsedDetails);
       } else {
         const errorMessage = result.error?.message || 'Unknown error';
+        const suggestions = result.error?.details?.suggestions;
         const examples = result.error?.details?.examples;
         
-        let fullMessage = `Failed to process command: ${errorMessage}`;
+        let fullMessage = `❌ ${errorMessage}`;
+        
+        if (suggestions && suggestions.length > 0) {
+          fullMessage += `\n\n💡 Suggestions:\n${suggestions.map((suggestion: string) => `• ${suggestion}`).join('\n')}`;
+        }
+        
         if (examples && examples.length > 0) {
-          fullMessage += `\n\nTry these examples:\n${examples.map((ex: string) => `• ${ex}`).join('\n')}`;
+          fullMessage += `\n\n📝 Try these examples:\n${examples.map((ex: string) => `• ${ex}`).join('\n')}`;
         }
         
         showAlert('error', fullMessage);
@@ -124,8 +130,7 @@ const AICommandInput: React.FC<AICommandProps> = ({
 
   const examples = [
     "send 'Hello team!' to #general",
-    "message 'Meeting in 5 minutes' to @john",
-    "send 'Good morning' to the development channel"
+    "send 'Good morning' to #dev"
   ];
 
   return (
@@ -209,11 +214,15 @@ const AICommandInput: React.FC<AICommandProps> = ({
         <div className="bg-gray-50 rounded-lg p-4 mt-4">
           <h4 className="text-sm font-medium text-gray-900 mb-2">Supported Command Formats:</h4>
           <ul className="text-sm text-gray-600 space-y-1">
-            <li>• <code>send 'message' to #channel</code> - Send to a channel</li>
-            <li>• <code>message 'text' to @username</code> - Send direct message</li>
-            <li>• <code>send 'hello' to the general channel</code> - Natural language</li>
+            <li>• <code>send 'message' to #general</code> - Send to a specific channel</li>
+            <li>• <code>send 'hello' to #dev</code> - Channel names (dev, general, random, etc.)</li>
             <li>• <code>tell #team that 'meeting starts now'</code> - Alternative format</li>
           </ul>
+          <div className="mt-3 pt-2 border-t border-gray-200">
+            <p className="text-xs text-gray-500">
+              <strong>Smart Channel Mapping:</strong> "development channel" → #dev, "general channel" → #general
+            </p>
+          </div>
         </div>
       </form>
     </Card>

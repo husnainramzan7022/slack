@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Button from '../ui/Button';
 
 interface ConnectButtonProps {
-  onConnectionChange?: (connected: boolean) => void;
+  onConnectionChange?: (connected: boolean, connectionId?: string) => void;
   className?: string;
 }
 
@@ -111,9 +111,9 @@ const ConnectButton: React.FC<ConnectButtonProps> = ({
             
             setLoading(false);
             
-            // Notify parent component about successful connection
+            // Notify parent component about successful connection with connection ID
             if (onConnectionChange) {
-              onConnectionChange(true);
+              onConnectionChange(true, connectionId);
             }
             
             // Show success message with connection ID

@@ -77,9 +77,36 @@ export async function POST(request: NextRequest) {
       // TODO: Remove from your database
       // await db.connections.delete({ connectionId });
       
+    } else if (event.type === 'sync') {
+      // Handle sync events (data synchronization)
+      const { syncName, connectionId, success, responseResults, syncType } = event;
+      
+      console.log(`🔄 Sync event received:`);
+      console.log(`- Sync: ${syncName} (${syncType})`);
+      console.log(`- Connection: ${connectionId}`);
+      console.log(`- Success: ${success}`);
+      console.log(`- Results:`, responseResults);
+      
+      if (success) {
+        console.log(`✅ Sync "${syncName}" completed successfully`);
+        console.log(`- Added: ${responseResults?.added || 0}`);
+        console.log(`- Updated: ${responseResults?.updated || 0}`);
+        console.log(`- Deleted: ${responseResults?.deleted || 0}`);
+        
+        // TODO: Handle synced data based on syncName
+        // if (syncName === 'users') {
+        //   // Handle user sync data
+        // } else if (syncName === 'channels') {
+        //   // Handle channel sync data
+        // }
+      } else {
+        console.error(`❌ Sync "${syncName}" failed for connection ${connectionId}`);
+      }
+      
     } else {
       // Other webhook types
-      console.log('ℹ️ Other webhook type:', event.type, event.operation);
+      console.log('ℹ️ Other webhook type:', event.type, event.operation || 'N/A');
+      console.log('Event details:', JSON.stringify(event, null, 2));
     }
     
     // Always respond with 200 OK
