@@ -1,0 +1,98 @@
+{
+  "version": "1.0.0",
+  "description": "MCP Server Configuration for Pario Integration System",
+  "servers": {
+    "slack": {
+      "enabled": true,
+      "type": "slack",
+      "name": "Slack Integration",
+      "description": "Send messages, manage channels, and interact with Slack workspaces",
+      "config": {
+        "defaultConnectionId": null,
+        "requiresAuthentication": true,
+        "authenticationProvider": "nango"
+      },
+      "capabilities": [
+        "messaging",
+        "channel-management", 
+        "user-management",
+        "health-checking",
+        "ai-commands"
+      ],
+      "tools": [
+        {
+          "name": "slack_send_message",
+          "description": "Send a message to a Slack channel or user",
+          "category": "messaging",
+          "requiredParams": ["channel", "text"],
+          "optionalParams": ["thread_ts", "username", "icon_emoji"]
+        },
+        {
+          "name": "slack_get_channels", 
+          "description": "Get a list of channels in the Slack workspace",
+          "category": "channel-management",
+          "requiredParams": [],
+          "optionalParams": ["limit", "cursor", "exclude_archived", "types"]
+        },
+        {
+          "name": "slack_get_users",
+          "description": "Get a list of users in the Slack workspace", 
+          "category": "user-management",
+          "requiredParams": [],
+          "optionalParams": ["limit", "cursor", "include_locale"]
+        },
+        {
+          "name": "slack_get_user_info",
+          "description": "Get detailed information about a specific user",
+          "category": "user-management", 
+          "requiredParams": ["user"],
+          "optionalParams": ["include_locale"]
+        },
+        {
+          "name": "slack_health_check",
+          "description": "Check the health and connectivity of the Slack integration",
+          "category": "health-checking",
+          "requiredParams": [],
+          "optionalParams": []
+        },
+        {
+          "name": "slack_ai_message",
+          "description": "Send a message using natural language command parsing",
+          "category": "ai-commands",
+          "requiredParams": ["command"],
+          "optionalParams": [],
+          "examples": [
+            "send hello world to the general channel",
+            "message @john about the meeting",
+            "tell the team good morning in #announcements"
+          ]
+        }
+      ]
+    }
+  },
+  "registry": {
+    "autoDiscovery": true,
+    "healthCheckInterval": 300000,
+    "maxRetries": 3,
+    "timeout": 30000
+  },
+  "logging": {
+    "level": "info",
+    "enableMCPLogs": true,
+    "enableToolLogs": true,
+    "logFile": null
+  },
+  "security": {
+    "validateInputs": true,
+    "sanitizeOutputs": true,
+    "rateLimiting": {
+      "enabled": false,
+      "maxRequestsPerMinute": 60
+    }
+  },
+  "development": {
+    "hotReload": false,
+    "mockMode": false,
+    "debugMode": false
+  }
+}
